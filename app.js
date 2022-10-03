@@ -33,6 +33,7 @@ app.get("/dispatch", async (req, res, next) => {
 
     if (!crew_data) {
       console.log("cache CREW MISS");
+      console.log(process.env.CREW);
       const response = await axios(process.env.CREW, {
         headers: {
           "x-api-key": process.env.DISPATCH_KEY,
