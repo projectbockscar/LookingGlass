@@ -26,7 +26,7 @@ ICAO.forEach((element) => {
 });
 // console.log(icao_breakout);
 
-// Gets the crew members and stores them in Redis
+// Gets the crew members and stores them in Redis.
 
 app.get("/dispatch", async (req, res, next) => {
   try {
