@@ -11,7 +11,7 @@ const { get, set } = require("./store");
 let { ICAO } = require("./ICAO");
 ICAO = ICAO.airports;
 app.use("*", cors(), async (req, res, next) => {
-  console.log("login and user functions");
+  // console.log("login and user functions");
   req.user = {
     authorized: true,
   };
@@ -35,7 +35,6 @@ app.get("/dispatch", async (req, res, next) => {
 
     if (!crew_data) {
       console.log("cache CREW MISS");
-      console.log(process.env.CREW);
       const response = await axios(process.env.CREW, {
         headers: {
           "x-api-key": process.env.DISPATCH_KEY,
@@ -67,25 +66,9 @@ app.get("/dispatch", async (req, res, next) => {
           Accept: "application/json",
         },
       });
-      // console.log(flight_data.data.flights);
-      const missing = new Set();
-      // console.time("missing_checks");
-      // for (let i = 0; i < ICAO.length; i++) {
-      //   for (let n = 0; n < flight_data.data.flights.length; n++) {
-      //     if (flight_data.data.flights[n].departure === ICAO[i].icao) {
-      //       flight_data.data.flights[n].departureInfo = ICAO[i];
-      //     } else {
-      //       missing.add(flight_data.data.flights[n].departure);
-      //     }
-      //     if (flight_data.data.flights[n].destination === ICAO[i].icao) {
-      //       flight_data.data.flights[n].destinationInfo = ICAO[i];
-      //     } else {
-      //       missing.add(flight_data.data.flights[n].destination);
-      //     }
-      //   }
-      // }
-      // console.timeEnd("missing_checks");
 
+      const missing = new Set();
+      
       console.time("missing_checks2");
       for (let n = 0; n < flight_data.data.flights.length; n++) {
         if (Boolean(icao_breakout[flight_data.data.flights[n].departure])) {
@@ -103,7 +86,6 @@ app.get("/dispatch", async (req, res, next) => {
       }
       console.timeEnd("missing_checks2");
 
-      // console.log(flight_data.data.flights.length);
       console.log("missing", missing);
       console.time("missing_checks3");
       flight_data.data.flights.forEach((flight) => {
@@ -120,14 +102,19 @@ app.get("/dispatch", async (req, res, next) => {
     } else {
       console.log("cache HIT");
     }
+    
     flight_data = await JSON.parse(flight_data);
 
+    // Sort flights by departureTime
+    flight_data.flights.sort((a, b) => new Date(a.departureTime) - new Date(b.departureTime));
+    
     res.status(200).json({ flights: flight_data.flights });
   } catch (error) {
     console.log(error);
     res.status(500).send({ error: error.message });
   }
 });
+
 
 app.get("*", (req, res) => {
   res.status(200).sendFile(path.join(__dirname, "build", req.url));
