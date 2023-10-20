@@ -7,16 +7,32 @@ const fs = require("fs");
 const axios = require("axios");
 const moment = require("moment");
 const { get, set } = require("./store");
+const { exec } = require("child_process"); // <-- Added this line for exec
 
 let { ICAO } = require("./ICAO");
 ICAO = ICAO.airports;
+
+let currentCommitHash = ""; // <-- Added this line to store the current commit hash
+
+const updateCommitHash = () => {
+  // <-- Added this function to update the commit hash
+  exec("git rev-parse HEAD", (error, stdout) => {
+    if (error) {
+      console.error("Error fetching commit hash:", error);
+      return;
+    }
+    currentCommitHash = stdout.trim();
+  });
+};
+updateCommitHash(); // Initial fetch
+
 app.use("*", cors(), async (req, res, next) => {
-  // console.log("login and user functions");
   req.user = {
     authorized: true,
   };
   next();
 });
+
 let icao_breakout;
 ICAO.forEach((element) => {
   icao_breakout = {
@@ -24,7 +40,6 @@ ICAO.forEach((element) => {
     [element.icao]: element,
   };
 });
-// console.log(icao_breakout);
 
 // Gets the crew members and stores them in Redis.
 
@@ -34,7 +49,7 @@ app.get("/dispatch", async (req, res, next) => {
     let crew_data = await get("all_crew");
 
     if (!crew_data) {
-      console.log("cache CREW MISS");
+      console.log("cache CREW MISSs");
       const response = await axios(process.env.CREW, {
         headers: {
           "x-api-key": process.env.DISPATCH_KEY,
@@ -50,12 +65,12 @@ app.get("/dispatch", async (req, res, next) => {
       });
       await set("all_crew", JSON.stringify(crew_data), "EX", 600);
     } else {
-      console.log("cache CREW HIT");
+      console.log("cache CREW HITt");
       crew_data = JSON.parse(crew_data);
     }
 
     if (!flight_data) {
-      console.log("cache MISS");
+      console.log("cache MISSs");
       flight_data = await axios.get(process.env.DISPATCH, {
         params: {
           fromDate: moment().utc().format(),
@@ -68,7 +83,7 @@ app.get("/dispatch", async (req, res, next) => {
       });
 
       const missing = new Set();
-      
+
       console.time("missing_checks2");
       for (let n = 0; n < flight_data.data.flights.length; n++) {
         if (Boolean(icao_breakout[flight_data.data.flights[n].departure])) {
@@ -100,14 +115,16 @@ app.get("/dispatch", async (req, res, next) => {
       flight_data = await JSON.stringify({ flights: flight_data.data.flights });
       await set("all_flights", flight_data, "EX", 10);
     } else {
-      console.log("cache HIT");
+      console.log("cache HITt");
     }
-    
+
     flight_data = await JSON.parse(flight_data);
 
     // Sort flights by departureTime
-    flight_data.flights.sort((a, b) => new Date(a.departureTime) - new Date(b.departureTime));
-    
+    flight_data.flights.sort(
+      (a, b) => new Date(a.departureTime) - new Date(b.departureTime)
+    );
+
     res.status(200).json({ flights: flight_data.flights });
   } catch (error) {
     console.log(error);
@@ -115,6 +132,9 @@ app.get("/dispatch", async (req, res, next) => {
   }
 });
 
+app.get("/current-commit", (req, res) => {
+  res.json({ hash: currentCommitHash });
+});
 
 app.get("*", (req, res) => {
   res.status(200).sendFile(path.join(__dirname, "build", req.url));
