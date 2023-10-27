@@ -100,7 +100,6 @@ app.get("/dispatch", async (req, res, next) => {
         }
       }
       console.timeEnd("missing_checks2");
-
       console.log("missing", missing);
       console.time("missing_checks3");
       flight_data.data.flights.forEach((flight) => {
